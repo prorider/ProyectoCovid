@@ -1,0 +1,110 @@
+Select * from Muertes
+where continent is not null
+order by 3,4;
+
+
+SELECT location, date, total_cases, new_cases,total_deaths, population
+FROM Muertes
+order by 1,2;
+-- casos totales vs muertes totales
+
+SELECT location, date, total_cases, new_cases,total_deaths, population, (total_deaths/total_cases)*100 as DeathPercentage
+FROM Muertes
+where location like '%chile%'
+order by 1,2;
+--probalidad de morir en el pais en el que te encuentras
+-- muestra el porcentaje de personas contagiadas
+
+SELECT location, date, population,total_cases, (total_cases/population)*100 as CasesPercentage
+FROM Muertes
+where location like '%chile%'
+order by 1,2;
+-- pais con el indices mas altos de infeccion
+
+SELECT location, population,MAX (total_cases),MAX( (total_cases/population))*100 as CasesPercentage
+FROM Muertes
+where continent is not null
+order by 1,2;
+
+--paises con el indices mas altos de infeccion
+
+SELECT location, population,MAX (total_cases),MAX( (total_cases/population))*100 as CasesPercentage
+FROM Muertes
+where continent is not null
+Group by location, population
+order by CasesPercentage desc;
+
+-- mostrar los paises con mas muertes
+
+SELECT location,MAX (total_deaths) as TotalDeathCount
+FROM Muertes
+where continent is not null-- en las columnas donde hay paises el continente es null
+Group by location
+order by TotalDeathCount desc;
+
+-- revision por continent
+
+SELECT continent,MAX (total_deaths) as TotalDeathCount
+FROM Muertes
+where continent is not null-- en las columnas donde hay paises el continente es null
+Group by continent
+order by TotalDeathCount desc;
+
+-- Mundial
+
+Select date,SUM(new_cases)as total_cases,SUM(new_deaths)as total_deaths,SUM(new_deaths)/Sum(new_cases)*100  as deathpercentage
+from Muertes
+where continent is not null
+Group by date
+order by 1,2;
+
+-- unir las dos tablas
+-- total poblacion vs total vacunacion
+
+
+-- USE A CTE
+
+WITH popvsVac(continent, location, date, population, new_vaccinations, personasvacunadas) AS
+(
+    SELECT muertes.continent,
+           muertes.location,
+           muertes.date,
+           muertes.population,
+           vacunacion.new_vaccinations,
+           SUM(vacunacion.new_vaccinations) OVER (PARTITION BY muertes.location ORDER BY muertes.location, muertes.date) AS personasvacunadas
+    FROM muertes
+    JOIN vacunacion ON muertes.location = vacunacion.location AND muertes.date = vacunacion.date
+    WHERE muertes.continent IS NOT NULL
+)
+SELECT *, (personasvacunadas / population) * 100 AS PercentPopulationVaccinated
+FROM popvsVac;
+
+CREATE TABLE PorcentajePoblacionVacunada AS
+WITH popvsVac(continent, location, date, population, new_vaccinations, personasvacunadas) AS
+(
+    SELECT muertes.continent,
+           muertes.location,
+           muertes.date,
+           muertes.population,
+           vacunacion.new_vaccinations,
+           SUM(vacunacion.new_vaccinations) OVER (PARTITION BY muertes.location ORDER BY muertes.location, muertes.date) AS personasvacunadas
+    FROM muertes
+    JOIN vacunacion ON muertes.location = vacunacion.location AND muertes.date = vacunacion.date
+    WHERE muertes.continent IS NOT NULL
+)
+SELECT * FROM popvsVac;
+
+--CREATING A VIEW
+
+CREATE VIEW PercentPopulationVaccinated AS
+SELECT muertes.continent,
+       muertes.location,
+       muertes.date,
+       muertes.population,
+       vacunacion.new_vaccinations,
+       SUM(CONVERT(INT, vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS RollingPeopleVaccinated
+FROM muertes
+JOIN vacunacion
+    ON muertes.location = vacunacion.location
+    AND muertes.date = vacunacion.date
+WHERE muertes.continent IS NOT NULL;
